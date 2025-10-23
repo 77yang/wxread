@@ -24,7 +24,7 @@
   "synckey": 564589834
 }
 ```
-右键复制为Bash格式。
+右键复制为Bash格式【Mac复制似乎识别不了，windows可以】。
 
 ### 方法一： GitHub Action部署运行（GitHub运行）
 
