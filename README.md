@@ -98,6 +98,6 @@ steps4：测试：`docker exec -it wxread python /app/main.py`
 | `ct` | `1727580815` | 时间戳，表示请求发送的具体时间（秒级）。 |
 | `ps` | `"xxxxxxxxxxxxxxxxxxxxxxxx"` | 用户标识符或会话标识符，用于追踪用户或会话。 |
 | `pc` | `"xxxxxxxxxxxxxxxxxxxxxxxx"` | 设备标识符或客户端标识符，用于标识用户的设备或客户端。 |
-| `s` | `"fadcb9de"` | 校验和或哈希值，用于验证请求数据的完整性。 |
+| `s` | `"fadcb9de"` | 校验和或哈希值，用于验证请求数据的完整性 |
 
 
