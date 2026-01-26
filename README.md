@@ -77,7 +77,6 @@ steps4：测试：`docker exec -it wxread python /app/main.py`
 
 4. **推送**：pushplus推送偶尔出问题，猜测是GitHub action环境问题，增加重试机制。并增加wxpusher的极简推送方式。
 
-
 ***
 ## 字段解释 🔍
 
