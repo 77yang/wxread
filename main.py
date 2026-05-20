@@ -44,10 +44,18 @@ def cal_hash(input_string):
 def get_wr_skey():
     """刷新cookie密钥"""
     response = requests.post(RENEW_URL, headers=headers, cookies=cookies,
-                             data=json.dumps(COOKIE_DATA, separators=(',', ':')))
-    for cookie in response.headers.get('Set-Cookie', '').split(';'):
-        if "wr_skey" in cookie:
-            return cookie.split('=')[-1][:8]
+                             data=json.dumps(COOKIE_DATA, separators=(',', ':')), timeout=30)
+    set_cookie = response.headers.get('Set-Cookie', '')
+    logging.info("renewal状态码：%s，Set-Cookie包含wr_skey：%s",
+                 response.status_code, 'wr_skey=' in set_cookie)
+
+    wr_skey = response.cookies.get('wr_skey')
+    if wr_skey:
+        return wr_skey[:8]
+
+    for cookie in set_cookie.split(';'):
+        if "wr_skey=" in cookie:
+            return cookie.split('wr_skey=', 1)[-1].split(',', 1)[0][:8]
     return None
 
 def fix_no_synckey():
@@ -61,12 +69,17 @@ def refresh_cookie():
         cookies['wr_skey'] = new_skey
         logging.info(f"✅ 密钥刷新成功，新密钥：{new_skey}")
         logging.info(f"🔄 重新本次阅读。")
+    elif cookies.get('wr_skey'):
+        logging.warning("⚠️ 未获取到新密钥，继续使用WXREAD_CURL_BASH中的现有wr_skey。")
     else:
-        ERROR_CODE = "❌ 无法获取新密钥或者WXREAD_CURL_BASH配置有误，终止运行。"
+        ERROR_CODE = "❌ 无法获取新密钥，且WXREAD_CURL_BASH中未解析到wr_skey，终止运行。"
         logging.error(ERROR_CODE)
         push(ERROR_CODE, PUSH_METHOD)
         raise Exception(ERROR_CODE)
 
+logging.info("WXREAD_CURL_BASH解析结果：headers=%d，cookies=%d，wr_skey=%s，wr_vid=%s，wr_rt=%s",
+             len(headers), len(cookies), bool(cookies.get('wr_skey')),
+             bool(cookies.get('wr_vid')), bool(cookies.get('wr_rt')))
 refresh_cookie()
 index = 1
 lastTime = int(time.time()) - 30
