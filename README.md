@@ -24,6 +24,7 @@
 }
 ```
 右键复制为Bash格式【Mac复制似乎识别不了（用AI工具转化成Windows可识别的或许可以），windows可以】。
+现在可以识别 Mac 的 curl
 
 ### 方法一： GitHub Action部署运行（GitHub运行）
 
