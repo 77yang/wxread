@@ -1,6 +1,7 @@
 # config.py 自定义配置,包括阅读次数、推送token的填写
 import os
 import re
+import shlex
 
 """
 可修改区域
@@ -77,36 +78,87 @@ data = {
 }
 
 
-def convert(curl_command):
-    """提取bash接口中的headers与cookies
-    支持 -H 'Cookie: xxx' 和 -b 'xxx' 两种方式的cookie提取
-    """
-    # 提取 headers
-    headers_temp = {}
-    for match in re.findall(r"-H '([^:]+): ([^']+)'", curl_command):
-        headers_temp[match[0]] = match[1]
+def _normalize_curl_arg(arg):
+    """兼容 Chrome 复制出的 $'...' 参数。"""
+    return arg[1:] if arg.startswith('$') else arg
 
-    # 提取 cookies
+
+def _split_header(header):
+    if ':' not in header:
+        return None, None
+    key, value = header.split(':', 1)
+    return key.strip(), value.strip()
+
+
+def _parse_cookies(cookie_string):
     cookies = {}
-    
-    # 从 -H 'Cookie: xxx' 提取
-    cookie_header = next((v for k, v in headers_temp.items() 
+    if not cookie_string:
+        return cookies
+    for cookie in cookie_string.split(';'):
+        if '=' in cookie:
+            key, value = cookie.split('=', 1)
+            cookies[key.strip()] = value.strip()
+    return cookies
+
+
+def convert(curl_command):
+    """提取bash接口中的headers与cookies。
+
+    兼容 -H/--header、-b/--cookie、--header=xxx、--cookie=xxx，
+    以及 Chrome 在 Mac 上复制出的单引号、双引号和 $'...' 参数格式。
+    """
+    headers_temp = {}
+    cookie_string = ''
+
+    try:
+        args = shlex.split(curl_command)
+    except ValueError:
+        args = []
+
+    index = 0
+    while index < len(args):
+        arg = args[index]
+        value = None
+
+        if arg in ('-H', '--header'):
+            index += 1
+            if index < len(args):
+                value = args[index]
+        elif arg.startswith('--header='):
+            value = arg.split('=', 1)[1]
+        elif arg.startswith('-H') and arg != '-H':
+            value = arg[2:]
+
+        if value is not None:
+            key, header_value = _split_header(_normalize_curl_arg(value))
+            if key:
+                headers_temp[key] = header_value
+            index += 1
+            continue
+
+        if arg in ('-b', '--cookie'):
+            index += 1
+            if index < len(args):
+                cookie_string = _normalize_curl_arg(args[index])
+        elif arg.startswith('--cookie='):
+            cookie_string = _normalize_curl_arg(arg.split('=', 1)[1])
+        elif arg.startswith('-b') and arg != '-b':
+            cookie_string = _normalize_curl_arg(arg[2:])
+
+        index += 1
+
+    if not headers_temp and not cookie_string:
+        for match in re.findall(r"-H ['\"]([^:]+): ([^'\"]+)['\"]", curl_command):
+            headers_temp[match[0]] = match[1]
+        cookie_b = re.search(r"-b ['\"]([^'\"]+)['\"]", curl_command)
+        cookie_string = cookie_b.group(1) if cookie_b else ''
+
+    cookie_header = next((v for k, v in headers_temp.items()
                          if k.lower() == 'cookie'), '')
-    
-    # 从 -b 'xxx' 提取
-    cookie_b = re.search(r"-b '([^']+)'", curl_command)
-    cookie_string = cookie_b.group(1) if cookie_b else cookie_header
-    
-    # 解析 cookie 字符串
-    if cookie_string:
-        for cookie in cookie_string.split('; '):
-            if '=' in cookie:
-                key, value = cookie.split('=', 1)
-                cookies[key.strip()] = value.strip()
-    
-    # 移除 headers 中的 Cookie/cookie
-    headers = {k: v for k, v in headers_temp.items() 
-              if k.lower() != 'cookie'}
+    cookies = _parse_cookies(cookie_string or cookie_header)
+
+    headers = {k: v for k, v in headers_temp.items()
+               if k.lower() != 'cookie'}
 
     return headers, cookies
 
